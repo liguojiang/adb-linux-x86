@@ -7,3 +7,6 @@ all:
 	make -s -f debian/makefiles/adb.mk
 	rm *.o
 
+install:
+	cp adb /home/openwrt/openwrt/591wifi_feeds/packages/net/adb31/files
+
