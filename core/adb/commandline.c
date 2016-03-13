@@ -43,6 +43,7 @@ void get_my_path(char *s, size_t maxLen);
 int find_sync_dirs(const char *srcarg,
         char **android_srcdir_out, char **data_srcdir_out);
 int install_app(transport_type transport, char* serial, int argc, char** argv);
+int install_app_batch(transport_type transport, char* serial, int argc, char** argv);
 int uninstall_app(transport_type transport, char* serial, int argc, char** argv);
 
 static const char *gProductOutPath = NULL;
@@ -1383,6 +1384,11 @@ top:
         if (argc < 2) return usage();
         return install_app(ttype, serial, argc, argv);
     }
+	
+	if(!strcmp(argv[0], "install_batch")) {
+        if (argc < 2) return usage();
+        return install_app_batch(ttype, serial, argc, argv);
+    }
 
     if(!strcmp(argv[0], "uninstall")) {
         if (argc < 2) return usage();
@@ -1703,6 +1709,101 @@ int install_app(transport_type transport, char* serial, int argc, char** argv)
     if (check_file(apk_file) || check_file(verification_file)) {
         return 1;
     }
+
+    snprintf(apk_dest, sizeof apk_dest, where, get_basename(apk_file));
+    if (verification_file != NULL) {
+        snprintf(verification_dest, sizeof(verification_dest), where, get_basename(verification_file));
+
+        if (!strcmp(apk_dest, verification_dest)) {
+            fprintf(stderr, "APK and verification file can't have the same name\n");
+            return 1;
+        }
+    }
+
+    err = do_sync_push(apk_file, apk_dest, verify_apk);
+    if (err) {
+        goto cleanup_apk;
+    } else {
+        argv[file_arg] = apk_dest; /* destination name, not source location */
+    }
+
+    if (verification_file != NULL) {
+        err = do_sync_push(verification_file, verification_dest, 0 /* no verify APK */);
+        if (err) {
+            goto cleanup_apk;
+        } else {
+            argv[file_arg + 1] = verification_dest; /* destination name, not source location */
+        }
+    }
+
+    pm_command(transport, serial, argc, argv);
+
+cleanup_apk:
+    if (verification_file != NULL) {
+        delete_file(transport, serial, verification_dest);
+    }
+
+    delete_file(transport, serial, apk_dest);
+
+    return err;
+}
+
+int install_app_batch(transport_type transport, char* serial, int argc, char** argv)
+{
+    static const char *const DATA_DEST = "/data/local/tmp/%s";
+    static const char *const SD_DEST = "/sdcard/tmp/%s";
+    const char* where = DATA_DEST;
+    char apk_dest[PATH_MAX];
+    char verification_dest[PATH_MAX];
+    char apk_file[PATH_MAX];
+    char* verification_file = NULL;
+    int file_arg = -1;
+    int err;
+    int i;
+    int verify_apk = 1;
+
+    for (i = 1; i < argc; i++) {
+        if (*argv[i] != '-') {
+            file_arg = i;
+            break;
+        } else if (!strcmp(argv[i], "-i")) {
+            // Skip the installer package name.
+            i++;
+        } else if (!strcmp(argv[i], "-s")) {
+            where = SD_DEST;
+        } else if (!strcmp(argv[i], "--algo")) {
+            verify_apk = 0;
+            i++;
+        } else if (!strcmp(argv[i], "--iv")) {
+            verify_apk = 0;
+            i++;
+        } else if (!strcmp(argv[i], "--key")) {
+            verify_apk = 0;
+            i++;
+        }
+    }
+
+    if (file_arg < 0) {
+        fprintf(stderr, "can't find filename in arguments\n");
+        return 1;
+    } else if (file_arg + 2 < argc) {
+        fprintf(stderr, "too many files specified; only takes APK file and verifier file\n");
+        return 1;
+    }
+
+    //apk_file = argv[file_arg];
+	memset((void *)apk_file, 0, sizeof(apk_file));
+	memcpy(apk_file, argv[file_arg], strlen(argv[file_arg]) - 4);
+
+    if (file_arg != argc - 1) {
+        verification_file = argv[file_arg + 1];
+    }
+
+#if 0
+    if (check_file(apk_file) || check_file(verification_file)) {
+        return 1;
+    }
+#endif
 
     snprintf(apk_dest, sizeof apk_dest, where, get_basename(apk_file));
     if (verification_file != NULL) {
