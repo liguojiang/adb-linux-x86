@@ -1787,13 +1787,13 @@ int install_app_batch(transport_type transport, char* serial, int argc, char** a
         fprintf(stderr, "can't find filename in arguments\n");
         return 1;
     } else if (file_arg + 2 < argc) {
-        fprintf(stderr, "too many files specified; only takes APK file and verifier file\n");
+        fprintf(stderr, "install_batch: %d/%d too many files specified; only takes APK file and verifier file\n", file_arg, argc);
         return 1;
     }
 
     //apk_file = argv[file_arg];
 	memset((void *)apk_file, 0, sizeof(apk_file));
-	memcpy(apk_file, argv[file_arg], strlen(argv[file_arg]) - 4);
+	memcpy(apk_file, argv[file_arg], strlen(argv[file_arg]) - 6);
 
     if (file_arg != argc - 1) {
         verification_file = argv[file_arg + 1];
