@@ -1177,9 +1177,6 @@ top:
                 r = -1;
             }
 
-            /* FIXME */
-            persist = 0;
-            
             if(persist) {
                 fprintf(stderr,"\n- waiting for device -\n");
                 adb_sleep_ms(1000);
