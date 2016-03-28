@@ -616,7 +616,12 @@ static int send_shellcommand(transport_type transport, char* serial, char* buf)
         do_cmd(transport, serial, "wait-for-device", 0);
     }
 
+#if 0
+    /*
+     *  FIXME
+     */
     read_and_dump(fd);
+#endif    
     ret = adb_close(fd);
     if (ret)
         perror("close");
